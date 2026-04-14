@@ -32,7 +32,7 @@ def _engine():
     user = _get_secret("ANALYTICS_USER")
     password = _get_secret("ANALYTICS_PASSWORD")
     dbname = _get_secret("ANALYTICS_DBNAME")
-    url = f"postgresql+psycopg2://{user}:{password}@{host}:5432/{dbname}?sslmode=require"
+    url = f"postgresql+psycopg://{user}:{password}@{host}:5432/{dbname}?sslmode=require"
     return create_engine(url, pool_pre_ping=True)
 
 
