@@ -6,6 +6,7 @@ All queries are cached for 1 hour — call st.cache_data.clear() to force a refr
 """
 
 import os
+import ssl
 
 import pandas as pd
 import streamlit as st
@@ -32,8 +33,11 @@ def _engine():
     user = _get_secret("ANALYTICS_USER")
     password = _get_secret("ANALYTICS_PASSWORD")
     dbname = _get_secret("ANALYTICS_DBNAME")
-    url = f"postgresql+psycopg://{user}:{password}@{host}:5432/{dbname}?sslmode=require"
-    return create_engine(url, pool_pre_ping=True)
+    # pg8000 is a pure-Python driver — no compiled extensions, works on any Python version.
+    # SSL is passed via connect_args rather than the URL query string.
+    ssl_ctx = ssl.create_default_context()
+    url = f"postgresql+pg8000://{user}:{password}@{host}:5432/{dbname}"
+    return create_engine(url, connect_args={"ssl_context": ssl_ctx}, pool_pre_ping=True)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
