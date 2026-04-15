@@ -41,6 +41,17 @@ events = query("""
     ORDER BY event_date DESC
 """)
 
+# Parse event_date immediately — must happen before sidebar or any .dt access
+if not events.empty:
+    events["event_date"] = pd.to_datetime(events["event_date"], errors="coerce")
+
+REGION_COLOURS = {
+    "EMEA":  "#F5A623",
+    "NAMER": "#5DADE2",
+    "LATAM": "#27AE60",
+    "APAC":  "#9B59B6",
+}
+
 match_quality = query("""
     SELECT
         count(*)                                                               AS total,
@@ -72,8 +83,7 @@ with st.sidebar:
     all_regions = sorted(events["commercial_region"].dropna().unique().tolist())
     sel_regions = st.multiselect("Commercial region", all_regions, default=all_regions)
 
-    if not events.empty and "event_date" in events.columns:
-        events["event_date"] = pd.to_datetime(events["event_date"])
+    if not events.empty and pd.api.types.is_datetime64_any_dtype(events["event_date"]):
         min_year = int(events["event_date"].dt.year.min())
         max_year = int(events["event_date"].dt.year.max())
         year_range = st.slider("Event year", min_year, max_year, (min_year, max_year))
@@ -86,11 +96,12 @@ with st.sidebar:
 df = events.copy()
 if sel_regions:
     df = df[df["commercial_region"].isin(sel_regions)]
-df = df[
-    (df["event_date"].dt.year >= year_range[0]) &
-    (df["event_date"].dt.year <= year_range[1])
-]
-if show_upcoming:
+if not df.empty and pd.api.types.is_datetime64_any_dtype(df["event_date"]):
+    df = df[
+        (df["event_date"].dt.year >= year_range[0]) &
+        (df["event_date"].dt.year <= year_range[1])
+    ]
+if show_upcoming and not df.empty:
     df = df[~df["is_lapsed"]]
 
 # ---------------------------------------------------------------------------
@@ -146,12 +157,6 @@ else:
         axis=1,
     )
 
-    REGION_COLOURS = {
-        "EMEA":  "#F5A623",
-        "NAMER": "#5DADE2",
-        "LATAM": "#27AE60",
-        "APAC":  "#9B59B6",
-    }
     city_bubbles["color"] = city_bubbles["commercial_region"].map(REGION_COLOURS).fillna("#8E9BAD")
 
     fig_map = go.Figure()
@@ -327,7 +332,7 @@ st.markdown("---")
 
 st.subheader("Event Volume Over Time by Region")
 
-if not df.empty:
+if not df.empty and pd.api.types.is_datetime64_any_dtype(df["event_date"]):
     df["event_year"] = df["event_date"].dt.year
     df["event_quarter"] = df["event_date"].dt.to_period("Q").astype(str)
 
